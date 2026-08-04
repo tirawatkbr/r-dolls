@@ -1,0 +1,971 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>R Dolls — คลัง Supplier</title>
+<style>
+  :root{
+    --paper:#ECE6DA;
+    --paper-2:#E3DBCB;
+    --card:#F6F2E9;
+    --ink:#2A2621;
+    --muted:#7A7264;
+    --indigo:#2E4468;
+    --indigo-soft:#3d5988;
+    --mustard:#C68A2E;
+    --line:#CBC0AC;
+    --line-strong:#B4A98F;
+    --danger:#9c4b3f;
+    --radius:14px;
+    --shadow:0 1px 0 rgba(0,0,0,.04), 0 10px 24px -14px rgba(42,38,33,.45);
+    --tap:0;
+    --sans:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",sans-serif;
+    /* mono ไม่มีอักษรไทย ใช้ได้เฉพาะข้อความอังกฤษล้วน (eyebrow, R DOLLS)
+       ตัวเลขราคา/จำนวนใช้ --sans + tabular-nums แทน เลขจะตรงหลักเหมือนกันแต่ไทยไม่หลุดฟอนต์ */
+    --mono:ui-monospace,"SF Mono","SFMono-Regular",Menlo,Consolas,monospace;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --paper:#201D18;
+      --paper-2:#191612;
+      --card:#2A2620;
+      --ink:#EDE7D9;
+      --muted:#9c9284;
+      --indigo:#8fb0e6;
+      --indigo-soft:#a7c2ee;
+      --mustard:#E4B25A;
+      --line:#4a4437;
+      --line-strong:#5f5847;
+      --danger:#d98679;
+      --shadow:0 1px 0 rgba(0,0,0,.2), 0 12px 28px -16px rgba(0,0,0,.8);
+    }
+  }
+
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    background:var(--paper);
+    background-image:radial-gradient(var(--line) .5px, transparent .5px);
+    background-size:22px 22px;
+    color:var(--ink);
+    font-family:var(--sans);
+    line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+    min-height:100vh;
+  }
+  a{color:var(--indigo);text-underline-offset:2px}
+  button{font-family:inherit}
+  :focus-visible{outline:2.5px solid var(--indigo);outline-offset:2px;border-radius:6px}
+
+  /* ---------- layout ---------- */
+  .wrap{max-width:1180px;margin:0 auto;padding:22px 20px 80px}
+
+  header.top{display:flex;flex-wrap:wrap;gap:18px 24px;align-items:flex-end;justify-content:space-between;padding:14px 0 22px;border-bottom:1.5px dashed var(--line-strong)}
+  .brand{display:flex;flex-direction:column;gap:4px}
+  .eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.28em;text-transform:uppercase;color:var(--mustard);font-weight:600}
+  h1{margin:0;font-size:clamp(30px,5vw,46px);font-weight:800;letter-spacing:-.03em;line-height:.96}
+  h1 .amp{color:var(--indigo)}
+  .brand .sub{color:var(--muted);font-size:13px;line-height:1.45}
+
+  .controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+  .search{position:relative}
+  .search input{
+    font:inherit;font-size:14px;padding:10px 14px 10px 34px;width:220px;max-width:52vw;
+    background:var(--card);border:1.5px solid var(--line);border-radius:999px;color:inherit;
+  }
+  .search::before{content:"⌕";position:absolute;left:13px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:16px}
+
+  .btn{
+    font-size:14px;font-weight:600;padding:10px 16px;border-radius:999px;border:1.5px solid transparent;
+    background:var(--indigo);color:#fff;cursor:pointer;display:inline-flex;align-items:center;gap:7px;white-space:nowrap;
+    transition:transform .12s ease, filter .12s ease;
+  }
+  @media (prefers-color-scheme: dark){ .btn{color:#15120e} }
+  .btn:hover{filter:brightness(1.05)}
+  .btn:active{transform:translateY(1px)}
+  .btn.ghost{background:transparent;color:var(--ink);border-color:var(--line-strong)}
+  .btn.ghost.on{background:var(--mustard);border-color:var(--mustard);color:#241a06}
+  .btn.small{padding:7px 12px;font-size:13px}
+  .sortsel{
+    font:inherit;font-size:13px;padding:9px 12px;border-radius:999px;cursor:pointer;
+    background:transparent;color:var(--ink);border:1.5px solid var(--line-strong);
+  }
+  .sortsel option{background:var(--card);color:var(--ink)}
+
+  /* ---------- empty / status ---------- */
+  .stage{margin-top:46px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:20px}
+  .bigtag{
+    position:relative;width:230px;max-width:80vw;aspect-ratio:3/4;background:var(--card);
+    border-radius:18px;box-shadow:var(--shadow);transform:rotate(-3deg);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:26px;
+  }
+  .bigtag::after{content:"";position:absolute;inset:9px;border:1.6px dashed var(--line-strong);border-radius:12px;pointer-events:none}
+  .bigtag .hole{width:26px;height:26px;border-radius:50%;background:var(--paper);border:3px solid var(--indigo);margin-top:-4px}
+  .bigtag .emoji{font-size:54px;line-height:1}
+  .bigtag .cap{font-family:var(--mono);font-size:12px;color:var(--muted);letter-spacing:.04em}
+  .stage h2{margin:0;font-size:20px;font-weight:800}
+  .stage p{margin:0;color:var(--muted);max-width:430px;font-size:14px}
+  .stage .hint{font-size:12.5px;color:var(--muted)}
+  .warn{background:#f6ead0;border:1.5px solid var(--mustard);color:#5c451c;padding:12px 16px;border-radius:12px;font-size:13px;max-width:520px}
+  @media (prefers-color-scheme: dark){ .warn{background:#3a2f16;color:#e7c98a} }
+
+  .count{font-size:12.5px;color:var(--muted);margin:24px 2px 14px;font-variant-numeric:tabular-nums}
+
+  /* ---------- grid of hang tags ---------- */
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:26px 22px}
+  @media (max-width:520px){ .grid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:20px 14px} }
+
+  .tag{
+    position:relative;background:var(--card);border-radius:var(--radius);padding:14px 16px 16px;
+    box-shadow:var(--shadow);text-align:left;
+    display:flex;flex-direction:column;gap:10px;transition:transform .16s ease, box-shadow .16s ease;
+    transform-origin:top center;
+  }
+  .tag::after{content:"";position:absolute;inset:7px;border:1.4px dashed var(--line);border-radius:9px;pointer-events:none}
+  .tag:hover{transform:rotate(-1.4deg) translateY(-3px);box-shadow:0 1px 0 rgba(0,0,0,.05),0 18px 34px -18px rgba(42,38,33,.55)}
+
+  /* ชื่อ supplier = ปุ่มเปิดรายละเอียด แล้วแผ่ ::after คลุมทั้งการ์ด (stretched link)
+     ทำแบบนี้เพื่อไม่ให้ปุ่มดาวซ้อนอยู่ในปุ่มอีกที ซึ่งเป็น HTML ที่ใช้ไม่ได้ */
+  /* ชื่อ supplier เป็นภาษาไทยได้ จึงห้ามบีบ letter-spacing และต้องเผื่อ line-height
+     ให้สระบน/ล่างกับวรรณยุกต์ไม่ชนกัน */
+  .tag .open{
+    font:inherit;font-weight:800;font-size:17px;line-height:1.4;
+    background:none;border:none;padding:0;margin:0;color:var(--ink);text-align:left;cursor:pointer;
+  }
+  .tag .open::after{content:"";position:absolute;inset:0;z-index:1;border-radius:var(--radius)}
+  .tag .open:focus-visible{outline:none}
+  .tag .open:focus-visible::after{outline:2.5px solid var(--indigo);outline-offset:2px}
+
+  .swatch{aspect-ratio:1/1;border-radius:10px;overflow:hidden;background:var(--paper-2);position:relative}
+  .swatch img{width:100%;height:100%;object-fit:cover;display:block}
+  .swatch .none{position:absolute;inset:0;display:grid;place-items:center;color:var(--muted);font-size:30px}
+  .swatch .n-imgs{position:absolute;bottom:6px;right:6px;background:rgba(20,17,12,.72);color:#f6f2e9;font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;font-variant-numeric:tabular-nums}
+
+  /* ดาวลอยบนรูป — วงกลมทึบเพื่อให้อ่านออกทั้งบนรูปสว่างและรูปมืด */
+  .swatch .fav{
+    position:absolute;top:7px;right:7px;z-index:2;width:32px;height:32px;border-radius:50%;
+    border:1px solid rgba(255,255,255,.22);background:rgba(20,17,12,.5);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);
+    box-shadow:0 2px 8px rgba(0,0,0,.35);cursor:pointer;font-size:17px;line-height:1;color:#fff;
+    display:grid;place-items:center;transition:transform .12s ease, background .12s ease;
+  }
+  .swatch .fav:hover{transform:scale(1.12);background:rgba(20,17,12,.68)}
+  .swatch .fav.on{color:var(--mustard)}
+
+  .ticket{
+    font-size:12.5px;background:var(--paper-2);border:1px solid var(--line);
+    border-radius:8px;padding:9px 11px;display:flex;flex-direction:column;gap:3px;
+    font-variant-numeric:tabular-nums;
+  }
+  .ticket .big{font-size:19px;font-weight:700;color:var(--ink);line-height:1.25}
+  .ticket .big b{color:var(--indigo)}
+  .ticket .big .per{font-size:13px;font-weight:500;color:var(--muted)}
+  .ticket .moq{color:var(--muted);line-height:1.45}
+  .ticket.empty{color:var(--muted)}
+
+  /* สเปกบนการ์ดเป็นข้อความบรรทัดเดียวตัดท้าย ไม่ใช่ pill —
+     การ์ดมีกล่องราคาเป็นกรอบอยู่แล้ว ถ้าเติมแถว pill อีกจะกลายเป็นกรอบซ้อนกรอบ
+     และ pill จะตกบรรทัดเหลือ "+3" ลอยเดี่ยวเวลาการ์ดแคบ
+     เส้นคั่นใช้เส้นทึบ เพราะเส้นประสงวนไว้ให้กรอบป้ายห้อยอย่างเดียว */
+  .specs{
+    padding-top:9px;border-top:1px solid var(--line);
+    font-size:12px;color:var(--muted);line-height:1.5;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+  .specs .more{color:var(--line-strong)}
+
+  /* ลากรูปมาวางบนการ์ด/ในหน้ารายละเอียดเพื่ออัปโหลดเข้า Example/ */
+  .tag.dropping, .sheet.dropping{outline:2.5px dashed var(--indigo);outline-offset:3px}
+  .tag.dropping::before, .sheet.dropping::before{
+    content:"วางเพื่อเพิ่มรูป";position:absolute;inset:0;z-index:5;display:grid;place-items:center;
+    background:rgba(20,17,12,.72);color:#fff;font-size:14px;font-weight:600;border-radius:var(--radius);
+  }
+
+  /* การ์ดเปล่าท้ายกริดสำหรับเพิ่ม supplier ใหม่ */
+  .addtag{
+    border:1.5px dashed var(--line-strong);background:transparent;border-radius:var(--radius);
+    min-height:220px;color:var(--muted);cursor:pointer;font:inherit;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;
+    transition:border-color .16s ease, color .16s ease, background .16s ease;
+  }
+  .addtag:hover{border-color:var(--indigo);color:var(--indigo);background:rgba(143,176,230,.06)}
+  .addtag .plus{font-size:34px;line-height:1;font-weight:300}
+  .addtag .lbl{font-size:13.5px;font-weight:600}
+
+  /* ---------- modal ----------
+     ขอบ 1.5px จำเป็นในโหมดมืด เพราะสีกล่องกับสีพื้นหลังต่างกันแค่นิดเดียว
+     ถ้าไม่มีขอบ กล่องจะไม่มีรูปทรง จนกรอบเส้นประกลายเป็นขอบแทน */
+  dialog{
+    border:1.5px solid var(--line);border-radius:18px;padding:0;
+    width:calc(100vw - 32px);max-width:760px;
+    background:var(--card);color:var(--ink);box-shadow:0 30px 80px -30px rgba(0,0,0,.6);
+  }
+  dialog::backdrop{background:rgba(30,26,20,.68);backdrop-filter:blur(3px)}
+  .sheet{padding:22px 24px 26px;position:relative}
+  /* กรอบเส้นประ = สัญลักษณ์ "ป้ายห้อยตุ๊กตา" จึงใช้เฉพาะกล่องที่แทนตัว supplier
+     กล่องถามชื่อ/ยืนยัน (.plain) เป็นเสียงของระบบ ไม่ใช่ป้าย จึงไม่ใส่
+     รัศมีต้องเท่ากับ 18px ของ dialog ลบ inset 10px = 8px ไม่งั้นโค้งจะไม่ซ้อนกัน */
+  .sheet:not(.plain)::after{content:"";position:absolute;inset:10px;border:1.4px dashed var(--line);border-radius:8px;pointer-events:none}
+  .sheet > *{position:relative}
+  .x{position:absolute;top:20px;right:20px;width:34px;height:34px;border-radius:50%;border:1.5px solid var(--line);background:transparent;color:var(--ink);font-size:18px;cursor:pointer;z-index:4}
+  .x:hover{background:var(--paper-2)}
+  .sheet h3{margin:2px 46px 2px 0;font-size:22px;font-weight:800;line-height:1.35}
+  .sheet .links{display:flex;flex-wrap:wrap;gap:8px 16px;margin:8px 0 16px;font-size:13.5px}
+  .sheet .links a, .sheet .links span{font-size:13px;font-variant-numeric:tabular-nums}
+  .editedby{font-size:12px;color:var(--muted);margin:-10px 0 14px}
+  .editedby:empty{display:none}
+
+  .gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px;margin:6px 0 18px}
+  .gcell{position:relative;border-radius:9px;overflow:hidden}
+  .gcell img{width:100%;aspect-ratio:1/1;object-fit:cover;background:var(--paper-2);cursor:zoom-in;display:block}
+  .gcell .setcover{position:absolute;left:6px;right:6px;bottom:6px;font:inherit;font-size:11px;font-weight:600;padding:5px 6px;border-radius:7px;border:none;cursor:pointer;background:rgba(20,17,12,.72);color:#f6f2e9;opacity:0;transform:translateY(4px);transition:opacity .12s,transform .12s}
+  .gcell:hover .setcover, .gcell:focus-within .setcover{opacity:1;transform:none}
+  .gcell .del{
+    position:absolute;top:6px;right:6px;width:26px;height:26px;border-radius:50%;border:none;cursor:pointer;
+    background:rgba(20,17,12,.72);color:#f6f2e9;font-size:13px;line-height:1;display:grid;place-items:center;
+    opacity:0;transition:opacity .12s, background .12s;
+  }
+  .gcell:hover .del, .gcell:focus-within .del{opacity:1}
+  .gcell .del:hover{background:var(--danger);color:#fff}
+  .gcell.is-cover{outline:2.5px solid var(--mustard);outline-offset:-2.5px}
+  .gcell.is-cover .setcover{opacity:1;transform:none;background:var(--mustard);color:#241a06;cursor:default}
+  .lead{width:100%;max-height:340px;object-fit:contain;background:var(--paper-2);border-radius:10px;margin-bottom:10px;display:none;cursor:zoom-out}
+
+  .block{margin:16px 0}
+  /* uppercase + tracking กว้างใช้กับอักษรไทยไม่ได้ (uppercase ไม่มีผล ส่วน tracking ทำให้อ่านยาก)
+     ใช้ขนาด+สี+น้ำหนักแยกลำดับชั้นแทน */
+  .block h4{margin:0 0 8px;font-size:12.5px;font-weight:700;color:var(--mustard)}
+  table.rates{width:100%;border-collapse:collapse;font-size:13.5px;font-variant-numeric:tabular-nums}
+  table.rates th,table.rates td{text-align:left;padding:8px 10px;border-bottom:1px dashed var(--line)}
+  table.rates th{color:var(--muted);font-weight:600;font-size:12px}
+  table.rates td.price b{color:var(--indigo);font-size:15px}
+  .chips{display:flex;flex-wrap:wrap;gap:7px}
+  .chip{font-size:12.5px;background:var(--paper-2);border:1px solid var(--line);border-radius:999px;padding:5px 12px}
+  .note{font-size:13.5px;color:var(--ink);background:var(--paper-2);border-left:3px solid var(--mustard);border-radius:0 8px 8px 0;padding:10px 14px;white-space:pre-wrap}
+  .sheet-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:20px;flex-wrap:wrap;align-items:center}
+  .sheet-actions .grow{flex:1}
+  .btn.danger{color:var(--danger);border-color:var(--danger)}
+  .btn.danger:hover{background:var(--danger);color:#fff}
+  /* ปุ่มที่ยังกดไม่ได้ต้องยังอ่านออก และยังดูเป็น "ปุ่มหลัก" อยู่
+     ไม่ใช่จางจนกลืนไปกับปุ่มยกเลิกข้าง ๆ */
+  .btn:disabled{
+    background:color-mix(in srgb, var(--indigo) 20%, transparent);
+    color:var(--muted);border-color:transparent;cursor:not-allowed;filter:none;
+  }
+  /* กล่องถาม/ยืนยัน: ความกว้างต้องอยู่ที่ dialog เอง ไม่ใช่ที่ .sheet ข้างใน
+     ไม่งั้นกล่องจะกว้าง 760px แต่เนื้อหากว้าง 420px เหลือที่ว่างลอย ๆ ด้านขวา */
+  #ask{max-width:440px}
+  #ask .sheet{padding:24px 24px 22px}
+  #ask h3{margin:0;font-size:19px}
+  .asklabel{display:block;font-size:13px;font-weight:600;color:var(--ink);margin:18px 0 6px}
+  #ask input{
+    width:100%;font:inherit;font-size:15px;padding:11px 13px;color:inherit;
+    background:var(--paper);border:1.5px solid var(--line-strong);border-radius:9px;
+  }
+  .askmsg{margin:8px 0 0;color:var(--muted);font-size:13px;line-height:1.5;white-space:pre-line}
+  #ask .sheet-actions{margin-top:22px}
+
+  /* ---------- edit form ---------- */
+  form.edit label{display:block;font-size:13px;font-weight:600;color:var(--ink);margin:16px 0 6px}
+  form.edit input[type=text], form.edit textarea{
+    width:100%;font:inherit;font-size:14px;padding:10px 12px;background:var(--paper);border:1.5px solid var(--line-strong);border-radius:9px;color:inherit;
+  }
+  form.edit textarea{min-height:64px;resize:vertical}
+  .rate-rows{display:flex;flex-direction:column;gap:8px}
+  .rate-row{display:flex;gap:8px;align-items:center}
+  .rate-row input{width:100%;font-variant-numeric:tabular-nums}
+  .rate-row .eq{color:var(--muted)}
+  .rate-row .del{flex:none;width:36px;height:36px;border-radius:8px;border:1.5px solid var(--line);background:transparent;color:var(--danger);cursor:pointer;font-size:16px}
+  .rate-row .del:hover{border-color:var(--danger);background:var(--danger);color:#fff}
+  .rate-row .baht{flex:none;color:var(--muted);font-size:13px}
+  .muted-note{color:var(--muted);font-size:12.5px;margin-top:16px;line-height:1.5}
+
+  /* ช่องกรอกไม่ควรได้ทั้งเส้นขอบและวงแหวนโฟกัสซ้อนกันเป็นสองชั้น */
+  form.edit input:focus-visible, form.edit textarea:focus-visible,
+  #ask input:focus-visible, .search input:focus-visible, .sortsel:focus-visible{
+    outline:none;border-color:var(--indigo);box-shadow:0 0 0 3px color-mix(in srgb, var(--indigo) 28%, transparent);
+  }
+
+  .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);background:var(--ink);color:var(--paper);font-size:13.5px;padding:11px 20px;border-radius:999px;box-shadow:var(--shadow);opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;z-index:50}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+  @media (prefers-reduced-motion: reduce){
+    *{transition:none !important;animation:none !important}
+    .tag:hover{transform:none}
+  }
+  @keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+  .grid .tag{animation:rise .4s ease both}
+
+  /* ---------- หน้าล็อกอิน ---------- */
+  #gate{min-height:100vh;display:grid;place-items:center;padding:24px}
+  #gate .card-in{
+    background:var(--card);border:1.5px solid var(--line);border-radius:18px;
+    box-shadow:var(--shadow);padding:34px 30px;max-width:400px;width:100%;text-align:center;
+  }
+  #gate .bigtag{margin:0 auto 22px;width:150px;aspect-ratio:3/4;padding:18px;gap:10px}
+  #gate .bigtag .emoji{font-size:40px}
+  #gate h2{margin:0 0 8px;font-size:21px;font-weight:800}
+  #gate p{margin:0;color:var(--muted);font-size:14px;line-height:1.55}
+  #gate .btn{margin-top:22px;width:100%;justify-content:center}
+  #gate .who{margin-top:16px;font-size:12.5px;color:var(--muted);word-break:break-all}
+  .gsign{display:inline-block;width:18px;height:18px;flex:none}
+  [hidden]{display:none !important}
+</style>
+</head>
+<body>
+
+<!-- ต้องผ่านตรงนี้ก่อนถึงจะเห็นอะไร ข้อมูลจริงดึงไม่ได้ถ้าไม่ผ่านกฎ RLS อยู่แล้ว -->
+<div id="gate" hidden>
+  <div class="card-in">
+    <div class="bigtag"><div class="hole"></div><div class="emoji">🧸</div><div class="cap">R DOLLS</div></div>
+    <h2 id="gate-title">คลัง Supplier</h2>
+    <p id="gate-msg">เข้าสู่ระบบเพื่อดูและแก้ไขข้อมูลซัพพลายเออร์</p>
+    <button class="btn" id="gate-signin">
+      <svg class="gsign" viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M23 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.2a5.3 5.3 0 0 1-2.3 3.5v2.9h3.7c2.2-2 3.4-5 3.4-8.6z"/><path fill="#34A853" d="M12 24c3.1 0 5.7-1 7.6-2.8l-3.7-2.9a7 7 0 0 1-10.4-3.7H1.6v3a12 12 0 0 0 10.4 6.4z"/><path fill="#FBBC05" d="M5.5 14.6a7 7 0 0 1 0-4.6v-3H1.6a12 12 0 0 0 0 10.7z"/><path fill="#EA4335" d="M12 4.8c1.7 0 3.2.6 4.4 1.7l3.3-3.3A11.6 11.6 0 0 0 12 0 12 12 0 0 0 1.6 6.4l3.9 3A7 7 0 0 1 12 4.8z"/></svg>
+      เข้าสู่ระบบด้วย Google
+    </button>
+    <button class="btn ghost" id="gate-signout" hidden style="margin-top:10px;width:100%;justify-content:center">ออกจากระบบ</button>
+    <div class="who" id="gate-who"></div>
+  </div>
+</div>
+
+<div class="wrap" id="app" hidden>
+  <header class="top">
+    <div class="brand">
+      <span class="eyebrow">Supplier catalogue</span>
+      <h1>R&nbsp;Dolls<span class="amp"> ✦</span></h1>
+      <span class="sub" id="sub">ดูและเปรียบเทียบซัพพลายเออร์ตุ๊กตา จากโฟลเดอร์ในเครื่อง</span>
+    </div>
+    <div class="controls">
+      <div class="search"><input id="q" type="search" placeholder="ค้นหาชื่อ supplier…" autocomplete="off" aria-label="ค้นหา"></div>
+      <select class="sortsel" id="sort" aria-label="เรียงลำดับ">
+        <option value="price">เรียง: ราคาถูกสุด</option>
+        <option value="name">เรียง: ชื่อ ก–ฮ</option>
+        <option value="new">เรียง: เพิ่มล่าสุด</option>
+      </select>
+      <button class="btn ghost" id="favFilter" aria-pressed="false" title="ดูเฉพาะรายการที่ติดดาว">★ Favourite</button>
+      <button class="btn" id="refresh" title="อ่านโฟลเดอร์ใหม่อีกครั้ง">↻ Refresh</button>
+    </div>
+  </header>
+
+  <main id="main">
+    <!-- rendered here -->
+  </main>
+</div>
+
+<!-- detail -->
+<dialog id="detail"><div class="sheet">
+  <button class="x" data-close aria-label="ปิด">✕</button>
+  <h3 id="d-name"></h3>
+  <div class="links" id="d-links"></div>
+  <div class="editedby" id="d-meta"></div>
+  <img class="lead" id="d-lead" alt="">
+  <div class="gallery" id="d-gallery"></div>
+  <div class="block" id="d-rates-b"><h4>ราคา</h4><table class="rates"><thead><tr><th>จำนวน (ชิ้น)</th><th>ราคา/ชิ้น</th></tr></thead><tbody id="d-rates"></tbody></table></div>
+  <div class="block" id="d-spec-b"><h4>สเปกงาน</h4><div class="chips" id="d-spec"></div></div>
+  <div class="block" id="d-note-b"><h4>หมายเหตุ</h4><div class="note" id="d-note"></div></div>
+  <div class="sheet-actions">
+    <button class="btn ghost danger" id="d-delete">🗑 ลบ supplier</button>
+    <span class="grow"></span>
+    <button class="btn ghost" id="d-addimg">🖼 เพิ่มรูป</button>
+    <button class="btn ghost" id="d-rename">✎ เปลี่ยนชื่อ</button>
+    <button class="btn" id="d-edit">✎ แก้ไขข้อมูล</button>
+  </div>
+  <input type="file" id="d-file" accept="image/*" multiple hidden>
+</div></dialog>
+
+<!-- ถามชื่อ / ยืนยัน (ใช้ร่วมกันผ่าน ask())
+     ไม่มีปุ่ม ✕ เพราะมีทางออกอยู่แล้ว 2 ทางคือปุ่มยกเลิกกับ Esc -->
+<dialog id="ask"><div class="sheet plain">
+  <h3 id="ask-title"></h3>
+  <form id="ask-form">
+    <label class="asklabel" id="ask-label" for="ask-input"></label>
+    <input type="text" id="ask-input" autocomplete="off" spellcheck="false">
+    <p class="askmsg" id="ask-msg"></p>
+    <div class="sheet-actions">
+      <button type="button" class="btn ghost" data-close>ยกเลิก</button>
+      <button type="submit" class="btn" id="ask-ok">ตกลง</button>
+    </div>
+  </form>
+</div></dialog>
+
+<!-- edit -->
+<dialog id="editor"><div class="sheet">
+  <button class="x" data-close aria-label="ปิด">✕</button>
+  <h3 id="e-title">แก้ไขข้อมูล</h3>
+  <form class="edit" id="e-form">
+    <label for="e-web">เว็บไซต์</label>
+    <input type="text" id="e-web" placeholder="https://…">
+    <label for="e-phone">เบอร์ติดต่อ</label>
+    <input type="text" id="e-phone" placeholder="08x-xxx-xxxx">
+    <label for="e-line">LINE</label>
+    <input type="text" id="e-line" placeholder="@ไอดีไลน์ ของร้าน">
+    <label for="e-spec">สเปกงาน</label>
+    <input type="text" id="e-spec" placeholder="ขนาด | ชนิดผ้า | งานปัก | แพ็กกิ้ง">
+    <label for="e-lead">ระยะเวลาผลิต</label>
+    <input type="text" id="e-lead" placeholder="เช่น 30 วัน หรือ 4–6 สัปดาห์">
+    <label>ราคา</label>
+    <div class="rate-rows" id="e-rates"></div>
+    <button type="button" class="btn ghost small" id="e-addrate" style="margin-top:8px">+ เพิ่มเรตราคา</button>
+    <label for="e-note" style="margin-top:16px">หมายเหตุ</label>
+    <textarea id="e-note" placeholder="เช่น ราคายังไม่รวมกล่องและ VAT"></textarea>
+    <div class="muted-note">บันทึกลงไฟล์ <b>info.txt</b> ในโฟลเดอร์ของ supplier นี้</div>
+    <div class="sheet-actions">
+      <button type="button" class="btn ghost" data-close>ยกเลิก</button>
+      <button type="submit" class="btn">💾 บันทึก</button>
+    </div>
+  </form>
+</div></dialog>
+
+<div class="toast" id="toast"></div>
+
+<script src="config.js"></script>
+<script type="module">
+"use strict";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+const BUCKET = "supplier-images";
+
+// ถ้า config.js ยังไม่ได้กรอก ต้องบอกให้รู้ ไม่ใช่ปล่อยหน้าว่างเปล่า
+const cfg = window.RDOLLS_CONFIG || {};
+let sb;
+try{
+  sb = createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY);
+}catch(err){
+  const g = document.querySelector("#gate");
+  g.hidden = false;
+  document.querySelector("#gate-title").textContent = "ยังตั้งค่าไม่เสร็จ";
+  document.querySelector("#gate-msg").textContent =
+    "ไฟล์ public/config.js ยังไม่ได้ใส่ URL และกุญแจของ Supabase — ทำตามขั้นตอนที่ docs/setup.md ข้อ 7";
+  document.querySelector("#gate-signin").hidden = true;
+  throw err;
+}
+const IMG_RE = /\.(jpe?g|png|webp|gif|avif|bmp)$/i;
+const SORT_KEY = "rdolls:sort";
+
+const state = { suppliers:[], query:"", favOnly:false, sort:localStorage.getItem(SORT_KEY) || "price", me:"" };
+
+const $ = s => document.querySelector(s);
+const main = $("#main");
+
+/* ---------------- favourites — ดาวเป็นของทีม ไม่ใช่ของเบราว์เซอร์ใครคนเดียว ---------------- */
+async function toggleFav(s){
+  const next = !s.is_fav;
+  s.is_fav = next;                                   // อัปเดตหน้าจอก่อน ให้กดแล้วตอบสนองทันที
+  render();
+  const { error } = await sb.from("suppliers").update({ is_fav: next }).eq("id", s.id);
+  if(error){ s.is_fav = !next; render(); toast("ติดดาวไม่สำเร็จ: " + error.message); }
+}
+
+const numOf = s => parseFloat(String(s).replace(/,/g,"")) || 0;
+const fmt = s => { const n = numOf(s); return n ? n.toLocaleString("th-TH") : s; };
+
+/* ---------------- คุยกับ Supabase ----------------
+   ข้อมูลอยู่ในตาราง suppliers / supplier_images รูปอยู่ใน bucket แบบส่วนตัว
+   ทุกคำสั่งถูกกรองด้วยกฎ RLS ฝั่งฐานข้อมูลอีกชั้น คนนอกรายชื่อยิงมาก็ได้ผลลัพธ์ว่าง */
+const oops = (error, what) => { if(error) throw new Error(`${what}: ${error.message}`); };
+
+// bucket เป็นแบบส่วนตัว ต้องขอลิงก์ชั่วคราวทีละชุด (อายุ 1 ชม.)
+async function signURLs(paths){
+  if(!paths.length) return {};
+  const { data, error } = await sb.storage.from(BUCKET).createSignedUrls(paths, 3600);
+  oops(error, "ขอลิงก์รูปไม่สำเร็จ");
+  return Object.fromEntries(data.filter(d=>d.signedUrl).map(d=>[d.path, d.signedUrl]));
+}
+
+async function scan(){
+  status("info","⏳ กำลังโหลดรายการ supplier…");
+  const { data, error } = await sb
+    .from("suppliers")
+    .select("id,name,web,phone,line,spec,lead,note,cover,rates,is_fav,created_at,updated_at,updated_by,supplier_images(id,name,path)");
+  if(error){
+    status("unsupported", `<h2>โหลดข้อมูลไม่สำเร็จ</h2><p>${esc(error.message)}</p><p class="hint">ลองโหลดหน้าใหม่ ถ้ายังไม่ได้ให้แจ้งคนดูแล</p>`);
+    return;
+  }
+
+  // ขอลิงก์เฉพาะรูปปกก่อน รูปที่เหลือค่อยขอตอนเปิดหน้ารายละเอียด จะได้ไม่ช้า
+  const covers = [];
+  const prepared = data.map(s=>{
+    const images = (s.supplier_images||[])
+      .sort((a,b)=>a.name.localeCompare(b.name,"en",{numeric:true}));
+    const cover = pickCover(images, s.cover);
+    if(cover) covers.push(cover.path);
+    return { ...s, images, coverPath: cover ? cover.path : null };
+  });
+  const signed = await signURLs(covers);
+
+  state.suppliers = prepared.map(s=>({ ...s, coverURL: s.coverPath ? signed[s.coverPath] : null }));
+  render();
+}
+
+function pickCover(imgs, coverName){
+  if(!imgs || !imgs.length) return null;
+  if(coverName){ const hit = imgs.find(im=>im.name===coverName); if(hit) return hit; }
+  return imgs[0];
+}
+
+// บันทึกข้อมูล supplier — เช็ค updated_at ก่อน ถ้ามีคนแก้ไปแล้วจะไม่ทับเงียบ ๆ
+async function writeInfo(supplier, d){
+  const { data, error } = await sb.from("suppliers")
+    .update({ web:d.web, phone:d.phone, line:d.line, spec:d.spec, lead:d.lead, note:d.note, cover:d.cover, rates:d.rates })
+    .eq("id", supplier.id)
+    .eq("updated_at", supplier.updated_at)
+    .select("updated_at");
+  oops(error, "บันทึกไม่สำเร็จ");
+  if(!data.length) throw new Error("มีคนแก้ข้อมูลเจ้านี้ไปแล้ว กด Refresh แล้วแก้ใหม่อีกครั้ง");
+  supplier.updated_at = data[0].updated_at;
+}
+
+// ย่อรูปก่อนอัป — ทั้งเพื่อประหยัดพื้นที่และให้เว็บโหลดเร็วบนเน็ตมือถือ
+function shrink(file, max = 2400, quality = 0.85){
+  return new Promise((resolve, reject)=>{
+    const img = new Image();
+    img.onload = ()=>{
+      URL.revokeObjectURL(img.src);
+      const scale = Math.min(1, max / Math.max(img.width, img.height));
+      if(scale === 1 && file.size < 900_000) return resolve(file);   // เล็กพออยู่แล้ว
+      const c = document.createElement("canvas");
+      c.width = Math.round(img.width * scale);
+      c.height = Math.round(img.height * scale);
+      c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+      c.toBlob(b => b ? resolve(b) : reject(new Error("ย่อรูปไม่สำเร็จ")), "image/jpeg", quality);
+    };
+    img.onerror = ()=>reject(new Error("เปิดไฟล์รูปไม่ได้"));
+    img.src = URL.createObjectURL(file);
+  });
+}
+
+async function uploadImages(supplier, fileList){
+  const imgs = [...fileList].filter(f=>IMG_RE.test(f.name) || f.type.startsWith("image/"));
+  if(!imgs.length) return 0;
+  toast(`กำลังเพิ่ม ${imgs.length} รูป…`);
+  for(const f of imgs){
+    const blob = await shrink(f);
+    // ชื่อไฟล์ใน storage ใช้ ascii ล้วนกันปัญหาอักษรไทย ส่วนชื่อที่ผู้ใช้เห็นเก็บในตาราง
+    const path = `${supplier.id}/${crypto.randomUUID()}.jpg`;
+    const up = await sb.storage.from(BUCKET).upload(path, blob, { contentType:"image/jpeg" });
+    oops(up.error, `อัป ${f.name} ไม่สำเร็จ`);
+    const ins = await sb.from("supplier_images").insert({ supplier_id: supplier.id, name: f.name, path });
+    oops(ins.error, "บันทึกรายการรูปไม่สำเร็จ");
+  }
+  return imgs.length;
+}
+
+/* ---------------- dialog ถามชื่อ / ยืนยัน ----------------
+   value=null คือโหมดยืนยัน (ไม่มีช่องกรอก) → คืน true/null
+   value=string คือโหมดถามชื่อ → คืนข้อความที่กรอก หรือ null ถ้ายกเลิก */
+function ask({ title, label="", msg="", value=null, ok="ตกลง", danger=false }){
+  return new Promise(resolve=>{
+    const dlg = $("#ask"), input = $("#ask-input"), okBtn = $("#ask-ok"), lab = $("#ask-label");
+    const asking = value !== null;
+    $("#ask-title").textContent = title;
+    $("#ask-msg").textContent = msg;
+    $("#ask-msg").style.display = msg ? "" : "none";
+    lab.textContent = label;
+    lab.style.display = asking && label ? "" : "none";
+    input.style.display = asking ? "" : "none";
+    input.value = value ?? "";
+    okBtn.textContent = ok;
+    okBtn.classList.toggle("danger", danger);
+    // ปุ่มหลักต้องทำงานได้จริงเสมอ — ยังไม่พิมพ์ชื่อก็กดไม่ได้ ดีกว่ากดแล้วกล่องปิดเฉย ๆ
+    const sync = ()=>{ okBtn.disabled = asking && !input.value.trim(); };
+    input.oninput = sync; sync();
+
+    let done = false;
+    const finish = v => { if(done) return; done = true; resolve(v); dlg.close(); };
+    $("#ask-form").onsubmit = e => {
+      e.preventDefault();
+      if(okBtn.disabled) return;
+      finish(asking ? input.value.trim() : true);
+    };
+    dlg.addEventListener("close", ()=>finish(null), { once:true });
+    dlg.showModal();
+    if(asking) input.select();
+  });
+}
+// ประกอบ object ข้อมูลจาก supplier ปัจจุบัน (ไว้ serialize)
+function dataOf(s){ return { web:s.web||"", phone:s.phone||"", line:s.line||"", spec:s.spec||"", lead:s.lead||"", cover:s.cover||"", note:s.note||"", rates:s.rates||[] }; }
+
+/* ---------------- rendering ---------------- */
+function status(kind, html){
+  main.innerHTML = `<div class="stage">
+    <div class="bigtag"><div class="hole"></div><div class="emoji">${kind==="unsupported"?"🧭":"🧸"}</div><div class="cap">R DOLLS</div></div>
+    ${html}
+  </div>`;
+}
+
+// เจ้าที่ยังไม่ใส่ราคาไปท้ายสุดเสมอ ไม่งั้นจะไปโผล่หัวตารางตอนเรียงราคาถูกสุด
+function sortItems(items){
+  const byName = (a,b)=>a.name.localeCompare(b.name,"th");
+  if(state.sort==="name") return items.slice().sort(byName);
+  if(state.sort==="new") return items.slice().sort((a,b)=>b.created_at.localeCompare(a.created_at) || byName(a,b));
+  const price = s => { const r = bestRate(s.rates); const n = r ? numOf(r.price) : 0; return n > 0 ? n : Infinity; };
+  return items.slice().sort((a,b)=> price(a)-price(b) || byName(a,b));
+}
+
+function render(){
+  const q = state.query.trim().toLowerCase();
+  let items = state.suppliers.filter(s=>!q || s.name.toLowerCase().includes(q));
+  if(state.favOnly) items = items.filter(s=>s.is_fav);
+  items = sortItems(items);
+
+  $("#sub").textContent = state.suppliers.length
+    ? `${state.suppliers.length} supplier ในคลัง`
+    : "ดูและเปรียบเทียบซัพพลายเออร์ตุ๊กตาของทีม";
+
+  if(!items.length){
+    const first = !state.suppliers.length;
+    const msg = first
+      ? `<h2>ยังไม่มี supplier</h2><p>กดปุ่มด้านล่างเพื่อเพิ่มเจ้าแรกเข้าคลัง</p>`
+      : `<h2>ไม่พบรายการ</h2><p>ลองล้างคำค้นหา หรือปิดตัวกรอง Favourite</p>`;
+    main.innerHTML = `<div class="stage">${msg}${first?`<button class="btn" id="add-first">＋ เพิ่ม supplier</button>`:""}</div>`;
+    if(first) $("#add-first").onclick = addSupplier;
+    return;
+  }
+
+  // ลำดับบนการ์ด: รูป → ชื่อ → ราคา/ขั้นต่ำ → สเปก (ตามหลัก list item ของ Baymard)
+  // โทร/เว็บ ไม่อยู่บนการ์ด เพราะไม่ช่วยตอนกวาดสายตาเทียบราคา — ไปดูในหน้ารายละเอียด
+  const cards = items.map((s,i)=>{
+    const idx = state.suppliers.indexOf(s);
+    const fav = s.is_fav;
+    const rate = bestRate(s.rates);
+    const moq = rate
+      ? [`ขั้นต่ำ ${fmt(rate.qty)} ชิ้น`, s.lead && `ผลิต ${s.lead}`, s.rates.length>1 && `+${s.rates.length-1} เรต`].filter(Boolean).join(" · ")
+      : "";
+    const ticket = rate
+      ? `<div class="ticket"><span class="big"><b>฿${fmt(rate.price)}</b><span class="per"> / ชิ้น</span></span><span class="moq">${esc(moq)}</span></div>`
+      : `<div class="ticket empty">— ยังไม่มีราคา —</div>`;
+    const star = `<button class="fav ${fav?"on":""}" data-fav="${idx}" aria-label="${fav?"เอาดาวออก":"ติดดาว"} ${esc(s.name)}" aria-pressed="${fav}">${fav?"★":"☆"}</button>`;
+    const swatch = s.coverURL
+      ? `<div class="swatch"><img loading="lazy" src="${s.coverURL}" alt="ตัวอย่างสินค้าของ ${esc(s.name)}">${s.images.length>1?`<span class="n-imgs">${s.images.length} รูป</span>`:""}${star}</div>`
+      : `<div class="swatch"><span class="none">🧵</span>${star}</div>`;
+    // สเปกบนการ์ดเอาแค่พอให้ตัดสินใจว่าจะกดเข้าไปดูต่อไหม ที่เหลือยุบเป็น +N
+    const chips = (s.spec||"").split("|").map(x=>x.trim()).filter(Boolean);
+    const specs = chips.length
+      ? `<div class="specs" title="${esc(chips.join(" · "))}">${esc(chips.slice(0,2).join(" · "))}${chips.length>2?` · <span class="more">อีก ${chips.length-2}</span>`:""}</div>`
+      : "";
+    return `<article class="tag" data-i="${idx}" style="animation-delay:${Math.min(i*40,320)}ms">
+      ${swatch}
+      <button class="open" data-i="${idx}">${esc(s.name)}</button>
+      ${ticket}
+      ${specs}
+    </article>`;
+  }).join("");
+
+  const addCard = `<button class="addtag" id="add-card"><span class="plus">＋</span><span class="lbl">เพิ่ม supplier</span></button>`;
+  main.innerHTML = `<div class="count">${items.length} รายการ${state.favOnly?" · เฉพาะ Favourite":""}</div><div class="grid">${cards}${addCard}</div>`;
+
+  $("#add-card").onclick = addSupplier;
+  main.querySelectorAll(".fav").forEach(el=>el.addEventListener("click",()=>toggleFav(state.suppliers[+el.dataset.fav])));
+  main.querySelectorAll(".open").forEach(el=>el.addEventListener("click",()=>openDetail(state.suppliers[+el.dataset.i])));
+  main.querySelectorAll(".tag").forEach(el=>wireDrop(el, ()=>state.suppliers[+el.dataset.i]));
+}
+
+function bestRate(rates){
+  if(!rates || !rates.length) return null;
+  return rates.reduce((a,b)=> numOf(b.price) && numOf(b.price) < numOf(a.price) ? b : a, rates[0]);
+}
+const esc = s => String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+function shortUrl(u){ return String(u).replace(/^https?:\/\//,"").replace(/\/$/,"").split(/[/?#]/)[0]; }
+
+/* ---------------- detail modal ---------------- */
+let current = null;
+async function openDetail(s){
+  current = s;
+  $("#d-name").textContent = s.name;
+  const links = [];
+  if(s.web) links.push(`<a href="${esc(s.web)}" target="_blank" rel="noopener">🔗 ${esc(shortUrl(s.web))}</a>`);
+  if(s.phone) links.push(`<span>📞 ${esc(s.phone)}</span>`);
+  if(s.line) links.push(`<span>💬 ${esc(s.line)}</span>`);
+  if(s.lead) links.push(`<span>⏱ ผลิต ${esc(s.lead)}</span>`);
+  $("#d-links").innerHTML = links.join("") || `<span style="color:var(--muted)">ยังไม่มีข้อมูลติดต่อ</span>`;
+  $("#d-meta").textContent = s.updated_by
+    ? `แก้ล่าสุดโดย ${s.updated_by} · ${new Date(s.updated_at).toLocaleString("th-TH",{dateStyle:"medium",timeStyle:"short"})}`
+    : "";
+
+  const dlg = $("#detail"); if(!dlg.open) dlg.showModal();
+
+  // ขอลิงก์ชั่วคราวของรูปทั้งชุดตอนเปิดหน้านี้ (หน้ารวมขอแค่รูปปกเพื่อความเร็ว)
+  const signed = await signURLs(s.images.map(im=>im.path));
+  s.images.forEach(im => im.url = signed[im.path]);
+
+  // gallery — คลิกรูปเพื่อดูใหญ่, ปุ่ม "ตั้งเป็นปก" เพื่อเลือกรูปหน้าการ์ด
+  const g = $("#d-gallery"); g.innerHTML=""; $("#d-lead").style.display="none";
+  const currentCover = pickCover(s.images, s.cover);
+  s.images.forEach((im)=>{
+    const isCover = currentCover && im.name===currentCover.name;
+    const cell = document.createElement("div");
+    cell.className = "gcell" + (isCover ? " is-cover" : "");
+    const img = document.createElement("img");
+    img.src=im.url; img.loading="lazy"; img.alt=im.name;
+    img.addEventListener("click",()=>{ const L=$("#d-lead"); L.src=im.url; L.style.display="block"; L.scrollIntoView({block:"nearest",behavior:"smooth"}); });
+    const setBtn = document.createElement("button");
+    setBtn.className="setcover"; setBtn.type="button";
+    setBtn.textContent = isCover ? "★ รูปปก" : "ตั้งเป็นปก";
+    setBtn.addEventListener("click",(e)=>{ e.stopPropagation(); setCover(s, im.name); });
+    const delBtn = document.createElement("button");
+    delBtn.className="del"; delBtn.type="button"; delBtn.textContent="🗑";
+    delBtn.title = "ลบรูปนี้"; delBtn.setAttribute("aria-label","ลบรูป "+im.name);
+    delBtn.addEventListener("click",(e)=>{ e.stopPropagation(); deleteImage(s, im); });
+    cell.appendChild(img); cell.appendChild(setBtn); cell.appendChild(delBtn);
+    g.appendChild(cell);
+  });
+  if(!s.images.length) g.innerHTML = `<span style="color:var(--muted);font-size:13px">ยังไม่มีรูป — ลากไฟล์รูปมาวางในหน้านี้ได้เลย</span>`;
+
+  // rates
+  const rb = $("#d-rates");
+  if(s.rates && s.rates.length){
+    rb.innerHTML = s.rates.slice().sort((a,b)=>numOf(a.qty)-numOf(b.qty))
+      .map(r=>`<tr><td>${esc(fmt(r.qty))}</td><td class="price"><b>฿${esc(fmt(r.price))}</b></td></tr>`).join("");
+    $("#d-rates-b").style.display="";
+  } else $("#d-rates-b").style.display="none";
+
+  // spec
+  const sp = $("#d-spec");
+  const chips = (s.spec||"").split("|").map(x=>x.trim()).filter(Boolean);
+  if(chips.length){ sp.innerHTML = chips.map(c=>`<span class="chip">${esc(c)}</span>`).join(""); $("#d-spec-b").style.display=""; }
+  else $("#d-spec-b").style.display="none";
+
+  // note
+  if(s.note){ $("#d-note").textContent = s.note; $("#d-note-b").style.display=""; }
+  else $("#d-note-b").style.display="none";
+}
+
+// ตั้งรูปปก: บันทึกชื่อไฟล์ แล้วอัปเดตรูปหน้าการ์ด
+async function setCover(s, fileName){
+  if(s.cover===fileName) return;
+  try{
+    const data = dataOf(s); data.cover = fileName;
+    await writeInfo(s, data);
+    s.cover = fileName;
+    const im = s.images.find(x=>x.name===fileName);
+    if(im) s.coverURL = im.url;
+    render();
+    openDetail(s);   // รีเฟรช modal ให้ badge/ปุ่มอัปเดต
+    toast("เปลี่ยนรูปปกแล้ว ✓");
+  }catch(err){ console.error(err); toast("เปลี่ยนรูปปกไม่สำเร็จ: " + err.message); }
+}
+
+/* ---------------- เพิ่ม / เปลี่ยนชื่อ / ลบ / เปิดโฟลเดอร์ ---------------- */
+// สแกนใหม่แล้วคืน supplier ตามชื่อ (object เดิมจะค้างหลัง scan ทุกครั้ง)
+async function rescanTo(name){
+  await scan();
+  return state.suppliers.find(s=>s.name===name) || null;
+}
+
+async function addSupplier(){
+  const name = await ask({
+    title:"เพิ่ม supplier",
+    label:"ชื่อ supplier",
+    msg:"เพื่อนทุกคนในทีมจะเห็นเจ้านี้ทันที",
+    value:"", ok:"เพิ่ม",
+  });
+  if(!name) return;
+  try{
+    const { error } = await sb.from("suppliers").insert({ name });
+    if(error) throw new Error(error.code === "23505" ? "มี supplier ชื่อนี้อยู่แล้ว" : error.message);
+    const s = await rescanTo(name);
+    toast(`เพิ่ม “${name}” แล้ว — กรอกข้อมูลต่อได้เลย`);
+    if(s){ current = s; openEditor(); }
+  }catch(err){ toast("เพิ่มไม่สำเร็จ: " + err.message); }
+}
+
+async function renameSupplier(s){
+  const to = await ask({
+    title:"เปลี่ยนชื่อ supplier",
+    label:"ชื่อใหม่",
+    value:s.name, ok:"เปลี่ยนชื่อ",
+  });
+  if(!to || to===s.name) return;
+  try{
+    const { error } = await sb.from("suppliers").update({ name: to }).eq("id", s.id);
+    if(error) throw new Error(error.code === "23505" ? "มี supplier ชื่อนี้อยู่แล้ว" : error.message);
+    const next = await rescanTo(to);
+    if(next) openDetail(next);
+    toast("เปลี่ยนชื่อแล้ว ✓");
+  }catch(err){ toast("เปลี่ยนชื่อไม่สำเร็จ: " + err.message); }
+}
+
+async function deleteSupplier(s){
+  const ok = await ask({
+    title:`ลบ "${s.name}"?`,
+    msg:`ลบข้อมูลและรูป ${s.images.length} รูปของเจ้านี้ออกจากคลัง เพื่อนทุกคนจะไม่เห็นอีก\nยังกู้คืนได้จากข้อมูลสำรองที่ GitHub (สำรองวันละครั้ง)`,
+    ok:"ลบ", danger:true,
+  });
+  if(!ok) return;
+  try{
+    if(s.images.length){
+      const rm = await sb.storage.from(BUCKET).remove(s.images.map(im=>im.path));
+      oops(rm.error, "ลบไฟล์รูปไม่สำเร็จ");
+    }
+    const { error } = await sb.from("suppliers").delete().eq("id", s.id);   // ลบแถวรูปตามอัตโนมัติ
+    oops(error, "ลบไม่สำเร็จ");
+    $("#detail").close();
+    await scan();
+    toast("ลบแล้ว ✓");
+  }catch(err){ toast("ลบไม่สำเร็จ: " + err.message); }
+}
+
+async function deleteImage(s, im){
+  const ok = await ask({ title:"ลบรูปนี้?", msg:im.name, ok:"ลบ", danger:true });
+  if(!ok) return;
+  try{
+    const rm = await sb.storage.from(BUCKET).remove([im.path]);
+    oops(rm.error, "ลบไฟล์รูปไม่สำเร็จ");
+    const { error } = await sb.from("supplier_images").delete().eq("id", im.id);
+    oops(error, "ลบรายการรูปไม่สำเร็จ");
+    const next = await rescanTo(s.name);
+    if(next) openDetail(next);
+    toast("ลบรูปแล้ว ✓");
+  }catch(err){ toast("ลบรูปไม่สำเร็จ: " + err.message); }
+}
+
+// เส้นทางเดียวของการเพิ่มรูป ใช้ร่วมทั้งลากวางและปุ่มเลือกไฟล์
+async function addImages(supplier, files){
+  if(!supplier) return;
+  try{
+    const n = await uploadImages(supplier, files);
+    if(!n) return toast("ไม่พบไฟล์รูปในสิ่งที่เลือกมา");
+    const next = await rescanTo(supplier.name);
+    if(next && $("#detail").open) openDetail(next);
+    toast(`เพิ่ม ${n} รูปแล้ว ✓`);
+  }catch(err){ toast("อัปโหลดไม่สำเร็จ: " + err.message); }
+}
+
+// ลากไฟล์รูปมาวางบน el (บนมือถือใช้ปุ่ม "เพิ่มรูป" แทน เพราะลากวางไม่ได้)
+function wireDrop(el, getSupplier){
+  const has = e => [...(e.dataTransfer?.types||[])].includes("Files");
+  el.addEventListener("dragover", e=>{ if(!has(e)) return; e.preventDefault(); el.classList.add("dropping"); });
+  el.addEventListener("dragleave", e=>{ if(!el.contains(e.relatedTarget)) el.classList.remove("dropping"); });
+  el.addEventListener("drop", async e=>{
+    if(!has(e)) return;
+    e.preventDefault(); el.classList.remove("dropping");
+    await addImages(getSupplier(), e.dataTransfer.files);
+  });
+}
+
+/* ---------------- edit modal ---------------- */
+function rateRow(qty="", price=""){
+  const div = document.createElement("div");
+  div.className="rate-row";
+  div.innerHTML = `<input type="text" inputmode="numeric" class="r-qty" placeholder="จำนวน" value="${esc(qty)}">
+    <span class="eq">=</span>
+    <input type="text" inputmode="numeric" class="r-price" placeholder="ราคา" value="${esc(price)}">
+    <span class="baht">฿</span>
+    <button type="button" class="del" aria-label="ลบเรตนี้">✕</button>`;
+  div.querySelector(".del").onclick = ()=>div.remove();
+  return div;
+}
+function openEditor(){
+  const s = current; if(!s) return;
+  // เจ้าที่เพิ่งสร้างยังไม่มีข้อมูลอะไรเลย พาดหัวควรบอกว่า "กรอก" ไม่ใช่ "แก้ไข"
+  const filled = s.web || s.phone || s.line || s.spec || s.lead || s.note || (s.rates && s.rates.length);
+  $("#e-title").textContent = (filled ? "แก้ไข: " : "กรอกข้อมูล: ") + s.name;
+  $("#e-web").value = s.web||"";
+  $("#e-phone").value = s.phone||"";
+  $("#e-line").value = s.line||"";
+  $("#e-spec").value = s.spec||"";
+  $("#e-lead").value = s.lead||"";
+  $("#e-note").value = s.note||"";
+  const rr = $("#e-rates"); rr.innerHTML="";
+  ((s.rates&&s.rates.length) ? s.rates : [{qty:"",price:""}]).forEach(r=>rr.appendChild(rateRow(r.qty,r.price)));
+  $("#detail").close();
+  $("#editor").showModal();
+}
+$("#e-addrate").onclick = ()=>$("#e-rates").appendChild(rateRow());
+$("#e-form").addEventListener("submit", async (e)=>{
+  e.preventDefault();
+  const s = current; if(!s) return;
+  const rates = [...$("#e-rates").querySelectorAll(".rate-row")].map(row=>({
+    qty: row.querySelector(".r-qty").value.trim(),
+    price: row.querySelector(".r-price").value.trim(),
+  })).filter(r=>r.qty!=="" || r.price!=="");
+  const data = {
+    web:$("#e-web").value.trim(), phone:$("#e-phone").value.trim(), line:$("#e-line").value.trim(),
+    spec:$("#e-spec").value.trim(), lead:$("#e-lead").value.trim(),
+    cover:s.cover||"", note:$("#e-note").value.trim(), rates
+  };
+  try{
+    await writeInfo(s, data);
+    Object.assign(s, data);
+    $("#editor").close();
+    render();
+    toast("บันทึกแล้ว ✓");
+  }catch(err){ console.error(err); toast("บันทึกไม่สำเร็จ: " + err.message); }
+});
+
+/* ---------------- misc UI ---------------- */
+let toastT=null;
+function toast(msg){ const t=$("#toast"); t.textContent=msg; t.classList.add("show"); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove("show"),2600); }
+
+$("#refresh").onclick = ()=> scan();
+$("#sort").value = state.sort;
+$("#sort").addEventListener("change", e=>{
+  state.sort = e.target.value;
+  localStorage.setItem(SORT_KEY, state.sort);
+  if(state.suppliers.length) render();
+});
+$("#q").addEventListener("input", e=>{ state.query=e.target.value; if(state.suppliers.length) render(); });
+$("#favFilter").onclick = (e)=>{ state.favOnly=!state.favOnly; const b=e.currentTarget; b.classList.toggle("on",state.favOnly); b.setAttribute("aria-pressed",state.favOnly); if(state.suppliers.length) render(); };
+$("#d-lead").onclick = e => { e.currentTarget.style.display = "none"; };  // กดรูปใหญ่เพื่อพับกลับ
+$("#d-edit").onclick = openEditor;
+$("#d-rename").onclick = ()=> current && renameSupplier(current);
+$("#d-delete").onclick = ()=> current && deleteSupplier(current);
+$("#d-addimg").onclick = ()=> $("#d-file").click();
+$("#d-file").onchange = async e => { await addImages(current, e.target.files); e.target.value = ""; };
+wireDrop($("#detail").querySelector(".sheet"), ()=>current);
+
+// กันเบราว์เซอร์เปิดไฟล์แทนที่จะอัปโหลด เวลาลากไปวางนอกจุดที่รับ
+["dragover","drop"].forEach(ev=>document.addEventListener(ev, e=>e.preventDefault()));
+
+document.querySelectorAll("[data-close]").forEach(b=>b.addEventListener("click",()=>b.closest("dialog").close()));
+document.querySelectorAll("dialog").forEach(d=>d.addEventListener("click",e=>{ if(e.target===d) d.close(); }));
+
+/* ---------------- ประตูหน้า: ต้องล็อกอินและอยู่ในรายชื่อก่อน ----------------
+   หน้านี้เป็นแค่ด่านให้คนใช้เข้าใจสถานะ ตัวกันจริงคือกฎ RLS ฝั่งฐานข้อมูล
+   ต่อให้ข้ามหน้านี้ไปได้ก็ยังดึงข้อมูลไม่ออกอยู่ดี */
+function showGate({ title, msg, signin=false, signout=false, who="" }){
+  $("#app").hidden = true;
+  $("#gate").hidden = false;
+  $("#gate-title").textContent = title;
+  $("#gate-msg").textContent = msg;
+  $("#gate-signin").hidden = !signin;
+  $("#gate-signout").hidden = !signout;
+  $("#gate-who").textContent = who;
+}
+
+$("#gate-signin").onclick = async ()=>{
+  const { error } = await sb.auth.signInWithOAuth({
+    provider: "google",
+    options: { redirectTo: location.href.split("#")[0] },
+  });
+  if(error) toast("เข้าสู่ระบบไม่สำเร็จ: " + error.message);
+};
+$("#gate-signout").onclick = ()=> sb.auth.signOut().then(()=>location.reload());
+
+async function boot(){
+  const { data:{ session } } = await sb.auth.getSession();
+  if(!session){
+    return showGate({ title:"คลัง Supplier", msg:"เข้าสู่ระบบเพื่อดูและแก้ไขข้อมูลซัพพลายเออร์", signin:true });
+  }
+
+  // อ่าน allowed_emails ได้ = อยู่ในรายชื่อจริง (กฎ RLS เป็นคนตัดสิน ไม่ใช่โค้ดฝั่งหน้าเว็บ)
+  const email = session.user.email || "";
+  const { data, error } = await sb.from("allowed_emails").select("email").limit(1);
+  if(error || !data || !data.length){
+    return showGate({
+      title:"ยังไม่ได้รับสิทธิ์",
+      msg:"บัญชีนี้ยังไม่อยู่ในรายชื่อผู้ใช้ ให้เจ้าของคลังเพิ่มอีเมลนี้ให้ก่อน แล้วเข้าสู่ระบบใหม่อีกครั้ง",
+      signout:true, who: email,
+    });
+  }
+
+  state.me = email;
+  $("#gate").hidden = true;
+  $("#app").hidden = false;
+  scan();
+}
+
+boot();
+</script>
+</body>
+</html>

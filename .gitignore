@@ -1,0 +1,13 @@
+# repo นี้เป็นสาธารณะ — ห้ามมีข้อมูลธุรกิจหรือกุญแจลับหลุดเข้ามาเด็ดขาด
+.env
+.env.*
+*.key
+service_role*
+node_modules/
+
+# ข้อมูล supplier ของจริงอยู่ที่ Supabase และสำรองใน repo r-dolls-data (ส่วนตัว)
+data/
+*/Example/
+info.txt
+
+.DS_Store
