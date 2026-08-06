@@ -282,7 +282,8 @@
 
   /* ช่องกรอกไม่ควรได้ทั้งเส้นขอบและวงแหวนโฟกัสซ้อนกันเป็นสองชั้น */
   form.edit input:focus-visible, form.edit textarea:focus-visible,
-  #ask input:focus-visible, .search input:focus-visible, .sortsel:focus-visible{
+  #ask input:focus-visible, .search input:focus-visible, .sortsel:focus-visible,
+  #gate form input:focus-visible{
     outline:none;border-color:var(--indigo);box-shadow:0 0 0 3px color-mix(in srgb, var(--indigo) 28%, transparent);
   }
 
@@ -308,7 +309,14 @@
   #gate p{margin:0;color:var(--muted);font-size:14px;line-height:1.55}
   #gate .btn{margin-top:22px;width:100%;justify-content:center}
   #gate .who{margin-top:16px;font-size:12.5px;color:var(--muted);word-break:break-all}
-  .gsign{display:inline-block;width:18px;height:18px;flex:none}
+  #gate form{margin-top:22px;text-align:left}
+  #gate form label{display:block;font-size:13px;font-weight:600;margin:0 0 6px}
+  #gate form input{
+    width:100%;font:inherit;font-size:15px;padding:11px 13px;color:inherit;
+    background:var(--paper);border:1.5px solid var(--line-strong);border-radius:9px;
+  }
+  #gate form input + label{margin-top:14px}
+  #gate form .btn{margin-top:18px}
   [hidden]{display:none !important}
 </style>
 </head>
@@ -320,10 +328,13 @@
     <div class="bigtag"><div class="hole"></div><div class="emoji">🧸</div><div class="cap">R DOLLS</div></div>
     <h2 id="gate-title">คลัง Supplier</h2>
     <p id="gate-msg">เข้าสู่ระบบเพื่อดูและแก้ไขข้อมูลซัพพลายเออร์</p>
-    <button class="btn" id="gate-signin">
-      <svg class="gsign" viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M23 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.2a5.3 5.3 0 0 1-2.3 3.5v2.9h3.7c2.2-2 3.4-5 3.4-8.6z"/><path fill="#34A853" d="M12 24c3.1 0 5.7-1 7.6-2.8l-3.7-2.9a7 7 0 0 1-10.4-3.7H1.6v3a12 12 0 0 0 10.4 6.4z"/><path fill="#FBBC05" d="M5.5 14.6a7 7 0 0 1 0-4.6v-3H1.6a12 12 0 0 0 0 10.7z"/><path fill="#EA4335" d="M12 4.8c1.7 0 3.2.6 4.4 1.7l3.3-3.3A11.6 11.6 0 0 0 12 0 12 12 0 0 0 1.6 6.4l3.9 3A7 7 0 0 1 12 4.8z"/></svg>
-      เข้าสู่ระบบด้วย Google
-    </button>
+    <form id="gate-form" hidden>
+      <label for="gate-email">อีเมล</label>
+      <input id="gate-email" type="email" autocomplete="username" required spellcheck="false">
+      <label for="gate-pass">รหัสผ่าน</label>
+      <input id="gate-pass" type="password" autocomplete="current-password" required>
+      <button class="btn" type="submit" id="gate-submit">เข้าสู่ระบบ</button>
+    </form>
     <button class="btn ghost" id="gate-signout" hidden style="margin-top:10px;width:100%;justify-content:center">ออกจากระบบ</button>
     <div class="who" id="gate-who"></div>
   </div>
@@ -436,7 +447,7 @@ try{
   document.querySelector("#gate-title").textContent = "ยังตั้งค่าไม่เสร็จ";
   document.querySelector("#gate-msg").textContent =
     "ไฟล์ public/config.js ยังไม่ได้ใส่ URL และกุญแจของ Supabase — ทำตามขั้นตอนที่ docs/setup.md ข้อ 7";
-  document.querySelector("#gate-signin").hidden = true;
+  document.querySelector("#gate-form").hidden = true;
   throw err;
 }
 const IMG_RE = /\.(jpe?g|png|webp|gif|avif|bmp)$/i;
@@ -928,18 +939,27 @@ function showGate({ title, msg, signin=false, signout=false, who="" }){
   $("#gate").hidden = false;
   $("#gate-title").textContent = title;
   $("#gate-msg").textContent = msg;
-  $("#gate-signin").hidden = !signin;
+  $("#gate-form").hidden = !signin;
   $("#gate-signout").hidden = !signout;
   $("#gate-who").textContent = who;
+  if(signin) $("#gate-email").focus();
 }
 
-$("#gate-signin").onclick = async ()=>{
-  const { error } = await sb.auth.signInWithOAuth({
-    provider: "google",
-    options: { redirectTo: location.href.split("#")[0] },
+// บัญชีสร้างจากหน้า Supabase เท่านั้น (Authentication → Users) และปิดการสมัครเองไว้
+// ที่นี่จึงมีแค่ "เข้าสู่ระบบ" ไม่มีปุ่มสมัครและไม่มีลืมรหัสผ่าน
+$("#gate-form").addEventListener("submit", async e=>{
+  e.preventDefault();
+  const btn = $("#gate-submit");
+  btn.disabled = true;
+  const { error } = await sb.auth.signInWithPassword({
+    email: $("#gate-email").value.trim(),
+    password: $("#gate-pass").value,
   });
-  if(error) toast("เข้าสู่ระบบไม่สำเร็จ: " + error.message);
-};
+  btn.disabled = false;
+  if(error){ toast("เข้าสู่ระบบไม่สำเร็จ: " + error.message); return; }
+  $("#gate-pass").value = "";
+  boot();
+});
 $("#gate-signout").onclick = ()=> sb.auth.signOut().then(()=>location.reload());
 
 async function boot(){

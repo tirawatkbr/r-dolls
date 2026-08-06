@@ -40,21 +40,22 @@ Supabase → **SQL Editor** → New query → วางทั้งไฟล์ 
 
 ---
 
-## 4. เปิดล็อกอินด้วย Google
+## 4. ตั้งค่าการล็อกอิน (อีเมล + รหัสผ่าน)
 
-1. Supabase → **Authentication → Providers → Google** — คัดลอก **Callback URL** ที่แสดงอยู่
-2. ไป [console.cloud.google.com](https://console.cloud.google.com) → สร้างโปรเจกต์ใหม่
-3. **APIs & Services → OAuth consent screen**
-   - User Type: **External** → Create
-   - App name ใส่ `R Dolls`, User support email + Developer contact ใส่อีเมลคุณ → Save
-   - หน้า **Audience** → **Publish app** (ถ้าไม่ publish จะใช้ได้แค่ 100 คน แต่ก็พอสำหรับทีมเล็ก
-     ถ้าไม่อยากผ่านการตรวจของ Google ให้เพิ่มอีเมลเพื่อนใน **Test users** แทน)
-4. **Credentials → Create credentials → OAuth client ID**
-   - Application type: **Web application**
-   - **Authorized redirect URIs** → วาง Callback URL จากข้อ 1
-   - Create → คัดลอก **Client ID** และ **Client secret**
-5. กลับมา Supabase → Authentication → Providers → Google → เปิดสวิตช์
-   วาง Client ID กับ Client secret → **Save**
+ทีมเล็ก 2–5 คน ไม่ต้องพึ่ง OAuth เจ้าไหนเลย ผู้ดูแลสร้างบัญชีให้ทีละคน
+
+1. Supabase → **Authentication → Sign In / Providers → Email**
+   - **Confirm email: ปิด** — ไม่ต้องส่งอีเมลยืนยัน (อีเมลในตัวของ Supabase ส่งได้แค่ 2 ฉบับ/ชม.
+     ทีมล็อกอินพร้อมกันคือพัง เราจึงเลี่ยงการส่งอีเมลทั้งหมด)
+   - **Allow new users to sign up: ปิด** ← สำคัญ ไม่งั้นใครก็ยิง API สมัครบัญชีเองได้
+     (สมัครได้ก็ยังไม่เห็นข้อมูล เพราะติด `allowed_emails` แต่ปิดไปเลยสะอาดกว่า)
+2. **Authentication → Users → Add user → Create new user**
+   - ใส่อีเมล + รหัสผ่านของคุณ ติ๊ก **Auto Confirm User**
+   - ทำซ้ำให้เพื่อนทุกคน แล้วส่งรหัสผ่านให้เขาทางช่องทางส่วนตัว
+
+**ทำไมไม่ใช้ Google:** โควตาสร้างโปรเจกต์ของ Google Cloud เต็ม ขอเพิ่มใช้เวลาหลายวัน
+และการเปลี่ยนมาใช้รหัสผ่านไม่ได้ลดความปลอดภัยของข้อมูล เพราะตัวกันจริงคือ RLS + `allowed_emails`
+ซึ่งไม่เกี่ยวกับว่าล็อกอินมาด้วยวิธีไหน
 
 ---
 
@@ -64,14 +65,15 @@ Supabase → **Authentication → URL Configuration**
 - **Site URL:** `https://tirawatkbr.github.io/r-dolls`
 - **Redirect URLs:** เพิ่ม `https://tirawatkbr.github.io/r-dolls/**`
 
-ถ้าข้ามข้อนี้ ล็อกอินเสร็จแล้วจะเด้งไปหน้าอื่น
+การล็อกอินด้วยรหัสผ่านไม่มีการเด้งออกนอกเว็บ ข้อนี้จึงไม่จำเป็นเท่าตอนใช้ OAuth
+แต่ตั้งไว้ให้ถูกก็ดี เผื่อวันหน้าเปิดลิงก์รีเซ็ตรหัสผ่าน
 
 ---
 
 ## 6. ใส่รายชื่อคนที่เข้าได้
 
 Supabase → **Table Editor → `allowed_emails` → Insert row**
-ใส่อีเมล **Google** ของคุณและเพื่อนทุกคน ทีละแถว
+ใส่อีเมลเดียวกับที่สร้าง user ไว้ในข้อ 4 ให้ครบทุกคน ทีละแถว
 
 ถ้าไม่ใส่ จะล็อกอินได้แต่เห็นหน้า "ยังไม่ได้รับสิทธิ์"
 
